@@ -1,44 +1,47 @@
 import { eventModel } from '../models/event.model.js';
 
 class EventDAO {
-async addAttendee(eventId, userId) {
-  return await eventModel.findByIdAndUpdate(
-    eventId,
-    { $addToSet: { attendees: userId } },
-    { returnDocument: 'after' }
-  ).populate('attendees', 'first_name last_name email');
-}
+  async addAttendee(eventId, userId) {
+    return await eventModel.findByIdAndUpdate(
+      eventId,
+      { $addToSet: { attendees: userId } },
+      { returnDocument: 'after' }
+    ).populate('attendees', 'first_name last_name email');
+  }
 
   async updateStatus(id, status) {
-  return await eventModel.findByIdAndUpdate(
-    id, 
-    { status }, 
-    { returnDocument: 'after' }
-  );
-}
+    return await eventModel.findByIdAndUpdate(
+      id, 
+      { status }, 
+      { returnDocument: 'after' }
+    );
+  }
 
-  
   async getAll() {
-    return await eventModel.find().populate('organizerId', 'first_name last_name email');
+    return await eventModel.find().populate('organizer', 'first_name last_name email');
   }
 
   async getById(id) {
-    return await eventModel.findById(id).populate('organizerId', 'first_name last_name email');
+    return await eventModel.findById(id).populate('organizer', 'first_name last_name email');
   }
 
   async findByLocationAndSchedule(location, date, time) {
-    // Busca si ya hay un evento activo reservando el mismo sitio a la misma fecha y hora
-    return await eventModel.findOne({ location, date, time, status: 'active' });
+    // Solo considera reservados los eventos que no estén cancelados ni terminados
+    return await eventModel.findOne({ 
+      location, 
+      date, 
+      time, 
+      status: { $nin: ['cancelled', 'finished'] } 
+    });
   }
 
   async create(eventData) {
- const newEvent = await eventModel.create(eventData);
-  // Puebla el campo organizerId antes de retornar la respuesta al cliente
-  return await newEvent.populate('organizerId', 'first_name last_name email');
+    const newEvent = await eventModel.create(eventData);
+    return await newEvent.populate('organizer', 'first_name last_name email');
   }
 
   async update(id, updateData) {
-    return await eventModel.findByIdAndUpdate(id, updateData, { returnDocument: 'after' });
+    return await eventModel.findByIdAndUpdate(id, updateData, { returnDocument: 'after', runValidators: true });
   }
 
   async delete(id) {

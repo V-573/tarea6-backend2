@@ -18,20 +18,6 @@ export const registerToEvent = async (req, res, next) => {
   }
 };
 
-export const cancelEvent = async (req, res, next) => {
-  try {
-    const { eventId } = req.params;
-    const cancelledEvent = await eventService.cancelEvent(eventId);
-    
-    res.status(200).json({ 
-      status: 'success', 
-      message: 'Evento cancelado exitosamente', 
-      payload: cancelledEvent 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const getEvents = async (req, res, next) => {
   try {
@@ -66,8 +52,31 @@ export const createEvent = async (req, res, next) => {
 export const updateEvent = async (req, res, next) => {
   try {
     const { eventId } = req.params;
-    const updatedEvent = await eventService.updateEvent(eventId, req.body);
-    res.status(200).json({ status: 'success', payload: updatedEvent });
+    
+    // Si el middleware isEventOwnerOrAdmin guardó req.event, se pasa al servicio
+    const updatedEvent = await eventService.updateEvent(eventId, req.body, req.event);
+    
+    res.status(200).json({ 
+      status: 'success', 
+      payload: updatedEvent 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelEvent = async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    
+    // Se reutiliza req.event para validar el estado antes de cancelar
+    const cancelledEvent = await eventService.cancelEvent(eventId, req.event);
+    
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'Evento cancelado exitosamente', 
+      payload: cancelledEvent 
+    });
   } catch (error) {
     next(error);
   }

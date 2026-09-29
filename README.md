@@ -1,4 +1,4 @@
-# TAREA5 - BACKEND2
+# TAREA6 - BACKEND2
 
 API REST modular desarrollada con Node.js y Express, estructurada bajo una arquitectura por capas (**Router, Controller, Service, Repository**) con manejo global de errores y validación estricta de datos.
 

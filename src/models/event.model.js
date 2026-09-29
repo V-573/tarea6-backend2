@@ -1,25 +1,55 @@
-import {Schema, model} from 'mongoose';
-import { UserModel } from './user.model.js';
+import { Schema, model } from 'mongoose';
 
 const eventCollection = 'events';
 
 const eventSchema = new Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
-  location: { type: String, required: true }, // Reserva de sitio / Lugar
-  date: { type: String, required: true },     // Formato YYYY-MM-DD
-  time: { type: String, required: true },     // Formato HH:mm
-  organizerId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  title: { 
+    type: String, 
+    required: [true, 'El título es obligatorio'] 
+  },
+  description: { 
+    type: String, 
+    required: [true, 'La descripción es obligatoria'] 
+  },
+  category: { 
+    type: String, 
+    required: [true, 'La categoría es obligatoria'] 
+  },
+  location: { 
+    type: String, 
+    required: [true, 'La ubicación es obligatoria'] 
+  },
+  date: { 
+    type: String, 
+    required: [true, 'La fecha es obligatoria'] 
+  },
+  time: { 
+    type: String, 
+    required: [true, 'La hora es obligatoria'] 
+  },
+  capacity: { 
+    type: Number, 
+    required: [true, 'La capacidad es obligatoria'],
+    min: [1, 'La capacidad debe ser mayor a 0'] 
+  },
+  price: { 
+    type: Number, 
+    required: [true, 'El precio es obligatorio'],
+    min: [0, 'El precio debe ser mayor o igual a 0'] 
   },
   status: { 
     type: String, 
-    enum: ['active', 'cancelled'], 
-    default: 'active' 
+    enum: {
+      values: ['draft', 'published', 'cancelled', 'finished'],
+      message: '{VALUE} no es un estado válido'
+    },
+    default: 'draft' 
   },
-  // ◄── Campo de inscripciones
+  organizer: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: [true, 'El organizador es obligatorio'] 
+  },
   attendees: [{
     type: Schema.Types.ObjectId,
     ref: 'User'
