@@ -3,6 +3,49 @@ import { CustomError } from '../utils/customError.util.js';
 
 class EventService {
 
+  /**
+   * Helper para verificar si una fecha (y hora opcional) está en el pasado
+   */
+  #isPastDate(date, time = '00:00') {
+    const eventDateTime = new Date(`${date}T${time}`);
+    return eventDateTime < new Date();
+  }
+
+  /**
+   * Helper para validar valores numéricos y reglas de estado/fecha
+   */
+  #validateEventBusinessRules({ date, time, capacity, price, status }, currentEvent = null) {
+    // 1. Rechazar capacity <= 0 (si se proporciona)
+    if (capacity !== undefined && (typeof capacity !== 'number' || capacity <= 0)) {
+      throw new CustomError('La capacidad del evento debe ser un número mayor a 0', 400);
+    }
+
+    // 2. Rechazar price < 0 (si se proporciona)
+    if (price !== undefined && (typeof price !== 'number' || price < 0)) {
+      throw new CustomError('El precio del evento no puede ser negativo', 400);
+    }
+
+    // 3. No permitir fecha pasada al crear o actualizar fecha/hora
+    const targetDate = date || currentEvent?.date;
+    const targetTime = time || currentEvent?.time || '00:00';
+    if (targetDate && this.#isPastDate(targetDate, targetTime)) {
+      throw new CustomError('No se pueden programar eventos en una fecha u hora pasada', 400);
+    }
+
+    // 4. No permitir publicar eventos ya finalizados o cancelados
+    const newStatus = status;
+    const currentStatus = currentEvent?.status;
+
+    if (newStatus === 'published') {
+      if (currentStatus === 'cancelled' || currentStatus === 'finished') {
+        throw new CustomError(`No se puede publicar un evento que está ${currentStatus}`, 400);
+      }
+      if (targetDate && this.#isPastDate(targetDate, targetTime)) {
+        throw new CustomError('No se puede publicar un evento cuya fecha ya ha pasado', 400);
+      }
+    }
+  }
+
   async registerToEvent(eventId, userId) {
     const event = await this.getEventById(eventId);
 
@@ -28,8 +71,6 @@ class EventService {
     return await eventRepository.registerAttendee(eventId, userId);
   }
 
-
-
   async getAllEvents() {
     return await eventRepository.getAllEvents();
   }
@@ -44,6 +85,9 @@ class EventService {
 
   async createEvent(eventData, userId) {
     const { title, description, category, location, date, time, capacity, price, status } = eventData;
+
+    // Validaciones de negocio
+    this.#validateEventBusinessRules({ date, time, capacity, price, status });
 
     // Validar disponibilidad del sitio en esa fecha y hora
     const existingReservation = await eventRepository.checkSiteAvailability(location, date, time);
@@ -60,15 +104,14 @@ class EventService {
       time,
       capacity,
       price,
-      status,
+      status: status || 'draft',
       organizer: userId
     });
 
     return newEvent;
   }
 
-async cancelEvent(eventId, currentEvent = null) {
-    // Reutiliza el evento cargado o realiza la búsqueda en BD si no existe
+  async cancelEvent(eventId, currentEvent = null) {
     const event = currentEvent || await this.getEventById(eventId);
 
     if (event.status === 'cancelled') {
@@ -79,18 +122,19 @@ async cancelEvent(eventId, currentEvent = null) {
   }
 
   async updateEvent(eventId, updateData, currentEvent = null) {
+    const eventToUpdate = currentEvent || await this.getEventById(eventId);
+
+    // Validaciones de negocio asociando los datos a actualizar con el estado actual
+    this.#validateEventBusinessRules(updateData, eventToUpdate);
+
     // Si se intentan cambiar fecha, hora o lugar, validamos disponibilidad
     if (updateData.location || updateData.date || updateData.time) {
-      
-      const eventToUpdate = currentEvent || await this.getEventById(eventId);
-      
       const location = updateData.location || eventToUpdate.location;
       const date = updateData.date || eventToUpdate.date;
       const time = updateData.time || eventToUpdate.time;
 
       const existingReservation = await eventRepository.checkSiteAvailability(location, date, time);
-      
-      // Si existe una reserva con misma ubicación/fecha/hora y pertenece a OTRO evento
+
       if (existingReservation && existingReservation._id.toString() !== eventId) {
         throw new CustomError('El nuevo sitio/horario ya está reservado por otro evento', 409);
       }
@@ -98,9 +142,6 @@ async cancelEvent(eventId, currentEvent = null) {
 
     return await eventRepository.updateEvent(eventId, updateData);
   }
-
-
-
 }
 
 export const eventService = new EventService();
