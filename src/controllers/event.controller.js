@@ -18,15 +18,24 @@ export const registerToEvent = async (req, res, next) => {
   }
 };
 
-
+// Función del controlador getEvents para pasar req.query al servicio y retornar la estructura de respuesta requerida.
 export const getEvents = async (req, res, next) => {
   try {
-    const events = await eventService.getAllEvents();
-    res.status(200).json({ status: 'success', payload: events });
+    const result = await eventService.getAllEvents(req.query);
+
+    res.status(200).json({
+      status: 'success',
+      data: result.data,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    });
   } catch (error) {
     next(error);
   }
 };
+
 
 export const getEventById = async (req, res, next) => {
   try {

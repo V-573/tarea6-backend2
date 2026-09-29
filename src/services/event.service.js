@@ -71,9 +71,55 @@ class EventService {
     return await eventRepository.registerAttendee(eventId, userId);
   }
 
-  async getAllEvents() {
-    return await eventRepository.getAllEvents();
+  // En src/services/event.service.js
+
+async getAllEvents(queryParams = {}) {
+  const {
+    status,
+    category,
+    location,
+    dateFrom,
+    dateTo,
+    page = 1,
+    limit = 10,
+    sort
+  } = queryParams;
+
+  // 1. Construcción dinámica de los filtros
+  const filter = {};
+
+  if (status) filter.status = status;
+  if (category) filter.category = category;
+  if (location) filter.location = { $regex: location, $options: 'i' }; // Búsqueda flexible e insensible a mayúsculas
+
+  // Filtro por rango de fechas (dateFrom y dateTo)
+  if (dateFrom || dateTo) {
+    filter.date = {};
+    if (dateFrom) filter.date.$gte = dateFrom; // Ejemplo: 'YYYY-MM-DD'
+    if (dateTo) filter.date.$lte = dateTo;
   }
+
+  // 2. Formato de paginación
+  const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+  const parsedLimit = Math.max(1, parseInt(limit, 10) || 10);
+
+  // 3. Formato de ordenamiento (ejemplo: sort=date o sort=-date)
+  let sortOption = { date: 1 };
+  if (sort) {
+    const isDesc = sort.startsWith('-');
+    const field = isDesc ? sort.substring(1) : sort;
+    sortOption = { [field]: isDesc ? -1 : 1 };
+  }
+
+  return await eventRepository.getAllEvents({
+    filter,
+    options: {
+      page: parsedPage,
+      limit: parsedLimit,
+      sort: sortOption
+    }
+  });
+}
 
   async getEventById(id) {
     const event = await eventRepository.getEventById(id);
