@@ -546,3 +546,361 @@ response (403 Forbidden) :
 | /api/events/:id | PUT | Owner (organizer) / admin | 200 OK | 401/403 (No es owner), 409 (Solapamiento) |
 | /api/events/:id/register | POST |  user | 200 OK | 403 (Si es organizer/admin), 409 (Ya registrado), 400 (Evento cancelado)| 
 | /api/events/:id | DELETE | Owner (organizer) / admin | 200 OK | 401/403 (Sin permiso), 400 (Ya cancelado) |
+
+
+
+
+### Ajustes de la tarea 6
+
+
+# 📅 API de Eventos - Documentación de Endpoints y Ejemplos de Uso
+
+Documentación detallada sobre las reglas de negocio, permisos por rol y casos de prueba para el módulo de eventos.
+
+---
+
+## 🔐 Control de Acceso y Roles (RBAC)
+
+* **`user`**: Puede consultar y registrarse en eventos. No tiene permisos para crear, modificar o cancelar eventos.
+* **`organizer`**: Puede crear eventos y gestionar/editar **únicamente sus propios eventos**.
+* **`admin`**: Posee control total. Puede crear y editar cualquier evento del sistema, independientemente de quién sea el organizador.
+
+---
+
+## 🧪 Casos de Uso y Escenarios de Prueba
+
+### 1. Crear Evento
+* **Ruta:** `POST /api/events`
+* **Autenticación:** Requerida (`Bearer Token`)
+
+#### 🚫 Crear evento con rol `user` (Prohibido)
+* **Headers:** `Authorization: Bearer <TOKEN_USER>`
+* **Status:** `403 Forbidden`
+* **Respuesta:**
+  ```json
+  {
+    "status": "error",
+    "message": "No tienes permisos para realizar esta acción"
+  }
+   ```
+
+
+
+  🚫 Crear evento con fecha pasada (Error de Validación)
+Headers: Authorization: Bearer <TOKEN_ORGANIZER>
+
+Body:
+
+ ```JSON
+{
+  "title": "Conferencia Tech",
+  "description": "Evento de tecnología",
+  "category": "Technology",
+  "location": "Auditorio A",
+  "date": "2020-01-01",
+  "time": "10:00",
+  "capacity": 100,
+  "price": 10
+} 
+```
+
+Status: 400 Bad Request
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "error",
+  "message": "No se pueden programar eventos en una fecha u hora pasada"
+} 
+```
+
+🚫 Crear evento con capacity: 0 (Error de Validación)
+Headers: Authorization: Bearer <TOKEN_ORGANIZER>
+
+Body:
+
+ ```JSON
+{
+  "title": "Taller Node.js",
+  "description": "Taller práctico",
+  "category": "Technology",
+  "location": "Sala 3",
+  "date": "2026-10-15",
+  "time": "15:00",
+  "capacity": 0,
+  "price": 0
+}
+ ```
+
+Status: 400 Bad Request
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "error",
+  "message": "La capacidad del evento debe ser un número mayor a 0"
+} 
+```
+
+2. Modificar Evento
+Ruta: PUT /api/events/:eventId
+
+Autenticación: Requerida (Bearer Token)
+
+✅ Organizer modifica evento propio (Éxito)
+Headers: Authorization: Bearer <TOKEN_ORGANIZER_PROPIETARIO>
+
+Status: 200 OK
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "success",
+  "payload": {
+    "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "title": "Taller Node.js (Actualizado)",
+    "capacity": 150,
+    "status": "draft"
+  }
+}
+ ```
+
+🚫 Organizer modifica evento ajeno (Prohibido)
+Headers: Authorization: Bearer <TOKEN_ORGANIZER_OTRO>
+
+Status: 403 Forbidden
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "error",
+  "message": "No tienes permisos para modificar un evento del cual no eres propietario"
+} 
+```
+✅ Admin modifica evento de otro organizador (Éxito)
+Headers: Authorization: Bearer <TOKEN_ADMIN>
+
+Status: 200 OK
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "success",
+  "payload": {
+    "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "title": "Taller Modificado por Admin",
+    "status": "published"
+  }
+} 
+```
+🚫 Cambiar estado de evento cancelado (Error de Regla de Negocio)
+Intento de cambiar el estado de un evento que ya se encuentra en estado cancelled.
+
+Headers: Authorization: Bearer <TOKEN_ORGANIZER_PROPIETARIO>
+
+Body:
+
+ ```JSON
+{
+  "status": "published"
+} 
+```
+Status: 400 Bad Request
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "error",
+  "message": "No se puede publicar un evento que está cancelled"
+} 
+```
+3. Consultas y Filtros
+✅ Listar eventos con filtros, paginación y ordenamiento
+Ruta: GET /api/events?status=published&category=workshop&page=2&limit=5
+
+Autenticación: Opcional / Pública
+
+Status: 200 OK
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "success",
+  "data": [
+    {
+      "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
+      "title": "Taller de React",
+      "category": "workshop",
+      "status": "published",
+      "date": "2026-11-20",
+      "time": "18:00",
+      "capacity": 30,
+      "price": 25
+    }
+  ],
+  "page": 2,
+  "limit": 5,
+  "total": 12,
+  "totalPages": 3
+}
+ ```
+
+🚫 Consultar evento inexistente (No encontrado)
+Ruta: GET /api/events/64f1a2b3c4d5e6f7a8b9ffff
+
+Status: 404 Not Found
+
+Respuesta:
+
+ ```JSON
+{
+  "status": "error",
+  "message": "Evento no encontrado"
+}
+ ```
+
+## 🚀 Colección de Postman y Guía de Pruebas
+
+Para probar rápidamente todos estos escenarios en Postman, configura las variables en tu **Environment** (o en la pestaña **Variables** de la Colección):
+
+| Variable | Valor de Ejemplo | Descripción |
+| :--- | :--- | :--- |
+| `baseUrl` | `http://localhost:8080/api` | URL base de la API |
+| `userToken` | `eyJhbGciOiJIUzI1Ni...` | JWT de un usuario con rol `user` |
+| `organizerToken` | `eyJhbGciOiJIUzI1Ni...` | JWT del organizador creador del evento |
+| `otherOrganizerToken` | `eyJhbGciOiJIUzI1Ni...` | JWT de otro organizador (no propietario) |
+| `adminToken` | `eyJhbGciOiJIUzI1Ni...` | JWT de un usuario con rol `admin` |
+| `eventId` | `64f1a2b3c4d5e6f7a8b9c0d1` | ID del evento creado para pruebas |
+
+---
+
+### 📥 Importar Peticiones en Postman
+
+Puedes recrear la siguiente estructura de carpetas en tu Postman:
+
+#### 📂 1. Creación de Eventos (`POST /events`)
+
+* **1.1. Crear como User (403 Forbidden)**
+  * **Method:** `POST`
+  * **URL:** `{{baseUrl}}/events`
+  * **Auth:** Bearer Token -> `{{userToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "title": "Evento no permitido",
+      "description": "Prueba de permisos",
+      "category": "Tech",
+      "location": "Auditorio",
+      "date": "2026-10-10",
+      "time": "10:00",
+      "capacity": 50,
+      "price": 0
+    }
+    ```
+
+* **1.2. Crear con Fecha Pasada (400 Bad Request)**
+  * **Method:** `POST`
+  * **URL:** `{{baseUrl}}/events`
+  * **Auth:** Bearer Token -> `{{organizerToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "title": "Evento Pasado",
+      "description": "Fecha anterior a la actual",
+      "category": "Tech",
+      "location": "Sala A",
+      "date": "2020-01-01",
+      "time": "09:00",
+      "capacity": 20,
+      "price": 10
+    }
+    ```
+
+* **1.3. Crear con Capacidad Cero (400 Bad Request)**
+  * **Method:** `POST`
+  * **URL:** `{{baseUrl}}/events`
+  * **Auth:** Bearer Token -> `{{organizerToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "title": "Evento Capacidad Cero",
+      "description": "Capacidad inválida",
+      "category": "Workshop",
+      "location": "Sala B",
+      "date": "2026-11-15",
+      "time": "14:00",
+      "capacity": 0,
+      "price": 0
+    }
+    ```
+
+---
+
+#### 📂 2. Modificación de Eventos (`PUT /events/:eventId`)
+
+* **2.1. Modificar Evento Propio (200 OK)**
+  * **Method:** `PUT`
+  * **URL:** `{{baseUrl}}/events/{{eventId}}`
+  * **Auth:** Bearer Token -> `{{organizerToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "title": "Taller Node.js (Título Actualizado)",
+      "capacity": 80
+    }
+    ```
+
+* **2.2. Modificar Evento Ajenas como Organizador (403 Forbidden)**
+  * **Method:** `PUT`
+  * **URL:** `{{baseUrl}}/events/{{eventId}}`
+  * **Auth:** Bearer Token -> `{{otherOrganizerToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "title": "Intento de Hackeo de Evento"
+    }
+    ```
+
+* **2.3. Modificar Evento Ajeno como Admin (200 OK)**
+  * **Method:** `PUT`
+  * **URL:** `{{baseUrl}}/events/{{eventId}}`
+  * **Auth:** Bearer Token -> `{{adminToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "status": "published",
+      "title": "Evento Aprobado y Publicado por Admin"
+    }
+    ```
+
+* **2.4. Intentar Publicar Evento Cancelado (400 Bad Request)**
+  * **Method:** `PUT`
+  * **URL:** `{{baseUrl}}/events/{{eventId}}` *(Asegurarse de que el evento esté en estado 'cancelled')*
+  * **Auth:** Bearer Token -> `{{organizerToken}}`
+  * **Body (raw JSON):**
+    ```json
+    {
+      "status": "published"
+    }
+    ```
+
+---
+
+#### 📂 3. Consultas y Filtros (`GET /events`)
+
+* **3.1. Listado con Filtros y Paginación (200 OK)**
+  * **Method:** `GET`
+  * **URL:** `{{baseUrl}}/events?status=published&category=workshop&page=2&limit=5`
+  * **Auth:** No Auth
+
+* **3.2. Evento Inexistente (404 Not Found)**
+  * **Method:** `GET`
+  * **URL:** `{{baseUrl}}/events/64f1a2b3c4d5e6f7a8b9ffff`
+  * **Auth:** No Auth
